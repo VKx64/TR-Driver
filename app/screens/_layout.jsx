@@ -14,7 +14,7 @@ export default function TabLayout() {
             borderTopLeftRadius: 14,
             borderTopRightRadius: 14,
           },
-          tabBarActiveTintColor: "#7BE495",
+          tabBarActiveTintColor: "#384bb4",
           tabBarInactiveTintColor: "#bbb",
           headerShown: false,
         }}

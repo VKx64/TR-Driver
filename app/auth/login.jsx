@@ -15,7 +15,7 @@ export default function LoginScreen({ navigation }) {
     
     // input handler
       if (email && password) {
-        router.replace('(tabs)');
+        router.replace('/screens/home');
     } else {
       alert('Please fill in both fields');
     }
