@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, User,Settings, Wrench} from "lucide-react-native"; // If not installed, use icons from react-native-vector-icons or Expo Icons
+import { Home, User, Settings, Wrench } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TouchableOpacity, View } from "react-native";
 
@@ -10,15 +10,13 @@ export default function TabLayout() {
         screenOptions={{
           tabBarStyle: {
             backgroundColor: "#1d1f24",
-            height: 72,
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
+            height: 50
           },
           tabBarActiveTintColor: "#384bb4",
           tabBarInactiveTintColor: "#bbb",
           headerShown: false,
-        }}
-      >
+        }}>
+
         <Tabs.Screen
           name="home"
           options={{
@@ -28,10 +26,18 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="maintenance"
           options={{
-            title: "Profile",
-            tabBarIcon: ({ color }) => <User size={25} color={color} />,
+            title: "Maintenance",
+            tabBarIcon: ({ color }) => <Wrench size={25} color={color} />,
+          }}
+        />
+
+        <Tabs.Screen
+          name="fuel"
+          options={{
+            title: "Fuel",
+            tabBarIcon: ({ color }) => <Wrench size={25} color={color} />,
           }}
         />
 
@@ -42,13 +48,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <Settings size={25} color={color} />,
           }}
         />
-         <Tabs.Screen
-          name="maintenance"
-          options={{
-            title: "Maintenance",
-            tabBarIcon: ({ color }) => <Wrench size={25} color={color} />,
-          }}
-        />
+
       </Tabs>
     </SafeAreaView>
   );

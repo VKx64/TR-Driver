@@ -11,6 +11,7 @@ export default function FleetMaintenanceScreen() {
   const [records, setRecords] = useState([
     { id: 1, vehicle: 'Truck A', date: '2024-03-12', description: 'Oil Change' },
     { id: 2, vehicle: 'Van B', date: '2024-03-10', description: 'Brake Inspection' },
+    { id: 3, vehicle: 'Van C', date: '2024-02-10', description: 'Brake LOL' },
   ]);
 
   const [showForm, setShowForm] = useState(false);
@@ -33,8 +34,7 @@ export default function FleetMaintenanceScreen() {
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 p-4"
-      >
+        className="flex-1 p-4">
         <Text className="text-xl font-bold mb-4 text-gray-800">
           Fleet Maintenance Records
         </Text>

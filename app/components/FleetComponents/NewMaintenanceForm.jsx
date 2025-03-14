@@ -1,34 +1,46 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, Text, TouchableOpacity } from 'react-native';
+import useCreateMaintenance from '../../../hooks/useCreateMaintenance'; // Import the useCreateMaintenance hook
 
-const NewMaintenanceForm = ({ onSave, onCancel }) => {
-  const [vehicle, setVehicle] = useState('');
-  const [date, setDate] = useState('');
-  const [description, setDescription] = useState('');
+const NewMaintenanceForm = ({ onSave, onCancel, fleetId }) => {
+  const { createMaintenance, loading, error } = useCreateMaintenance(); // Use the hook
+  const [name, setName] = useState('');
+  const [intervalInDays, setIntervalInDays] = useState('');
+  const [importance, setImportance] = useState('');
+  const [cost, setCost] = useState('');
 
   // Handle form submission with validation
-  const handleSubmit = useCallback(() => {
-    if (!vehicle.trim() || !date.trim() || !description.trim()) {
+  const handleSubmit = useCallback(async () => {
+    if (!name.trim() || !intervalInDays.trim() || !importance.trim() || !cost.trim()) {
       console.log('Validation failed: Some fields are empty');
       alert('Please fill all fields');
       return;
     }
 
-    const newRecord = { vehicle, date, description };
+    const maintenanceData = {
+      name,
+      interval_in_days: parseInt(intervalInDays, 10),
+      importance,
+      cost: parseFloat(cost),
+    };
 
-    console.log('Submitting new record:', newRecord);
+    console.log('Submitting new maintenance record:', maintenanceData);
 
-    onSave(newRecord);
-
-    // Clear inputs after save
-    resetForm();
-  }, [vehicle, date, description, onSave]);
+    try {
+      await createMaintenance(maintenanceData, fleetId);
+      onSave(maintenanceData);
+      resetForm();
+    } catch (error) {
+      console.error("Failed to create maintenance record:", error);
+    }
+  }, [name, intervalInDays, importance, cost, createMaintenance, fleetId, onSave]);
 
   // Reset all input fields
   const resetForm = () => {
-    setVehicle('');
-    setDate('');
-    setDescription('');
+    setName('');
+    setIntervalInDays('');
+    setImportance('');
+    setCost('');
   };
 
   return (
@@ -36,26 +48,36 @@ const NewMaintenanceForm = ({ onSave, onCancel }) => {
       <Text className="text-lg font-bold text-gray-800">New Maintenance Entry</Text>
 
       <TextInput
-        placeholder="Vehicle Name"
-        value={vehicle}
-        onChangeText={setVehicle}
+        placeholder="Name"
+        value={name}
+        onChangeText={setName}
         className="border border-gray-300 p-3 rounded text-base"
       />
 
       <TextInput
-        placeholder="Date (YYYY-MM-DD)"
-        value={date}
-        onChangeText={setDate}
+        placeholder="Interval in Days"
+        value={intervalInDays}
+        onChangeText={setIntervalInDays}
+        keyboardType="numeric"
         className="border border-gray-300 p-3 rounded text-base"
       />
 
       <TextInput
-        placeholder="Description"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        className="border border-gray-300 p-3 rounded text-base h-24"
+        placeholder="Importance"
+        value={importance}
+        onChangeText={setImportance}
+        className="border border-gray-300 p-3 rounded text-base"
       />
+
+      <TextInput
+        placeholder="Cost"
+        value={cost}
+        onChangeText={setCost}
+        keyboardType="numeric"
+        className="border border-gray-300 p-3 rounded text-base"
+      />
+
+      {error && <Text className="text-red-500 mb-4">{error}</Text>}
 
       <View className="flex-row justify-end space-x-2">
         <TouchableOpacity
@@ -68,8 +90,9 @@ const NewMaintenanceForm = ({ onSave, onCancel }) => {
         <TouchableOpacity
           onPress={handleSubmit}
           className="bg-indigo-600 px-5 py-2 rounded"
+          disabled={loading}
         >
-          <Text className="text-white font-medium">Save</Text>
+          <Text className="text-white font-medium">{loading ? 'Creating...' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </View>

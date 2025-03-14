@@ -1,30 +1,32 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import CustomTextInput from './components/CustomTextInput';
-import { useRouter } from 'expo-router';
-export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const router = useRouter(); 
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity } from "react-native";
+import CustomTextInput from "./components/CustomTextInput";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../contexts/AuthContext";
 
-  const handleLogin = () => {
-      // console print r
-      console.log('Login Button Pressed');
-      console.log('Current Email Value', email);
-      console.log('Current Password Value', password);
-    
-    // input handler
-      if (email && password) {
-        router.replace('/screens/home');
-    } else {
-      alert('Please fill in both fields');
+export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+  const { login } = useAuth();
+
+  const handleLogin = async () => {
+    try {
+      await login(email, password);
+      router.replace("/screens/home");
+    } catch (error) {
+      alert("Login failed. Please check your credentials.");
     }
   };
 
   return (
     <View className="flex-1 justify-center bg-white px-6">
-      <Text className="text-3xl font-bold mb-10 text-center text-gray-800">Login</Text>
-{/* inputs  */}
+      {/* Login Text */}
+      <Text className="mb-10 text-center text-3xl font-bold text-gray-800">
+        Login
+      </Text>
+
+      {/* Email inputs */}
       <CustomTextInput
         label="Email"
         value={email}
@@ -33,6 +35,7 @@ export default function LoginScreen({ navigation }) {
         keyboardType="email-address"
       />
 
+      {/* Password Input */}
       <CustomTextInput
         label="Password"
         value={password}
@@ -41,15 +44,15 @@ export default function LoginScreen({ navigation }) {
         secureTextEntry
       />
 
+      {/* Login Button */}
       <TouchableOpacity
-        className="bg-indigo-600 py-3 rounded-lg mb-4"
+        className="mb-4 rounded-lg bg-indigo-600 py-3"
         onPress={handleLogin}
-
       >
-        <Text className="text-center text-white font-semibold text-base">Log In</Text>
+        <Text className="text-center text-base font-semibold text-white">
+          Log In
+        </Text>
       </TouchableOpacity>
-
-  
     </View>
   );
 }
