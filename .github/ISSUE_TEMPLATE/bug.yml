@@ -1,0 +1,27 @@
+name: 🐞 Bug to Fix
+description: Guided request for bug reports
+labels: ["bug"]
+projects: ["VKx64/3"]
+body:
+    # Input element for describing the bug
+  - type: input
+    id: bug_description
+    attributes:
+      label: What is the bug?
+      description: Provide a clear and detailed description of the bug.
+      placeholder: "Example: Clicking the submit button causes the app to crash"
+    validations:
+      required: true
+
+  # Textarea element for the reproduction steps
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Reproduction steps
+      description: "How do you trigger this bug? Please walk us through it step by step."
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
