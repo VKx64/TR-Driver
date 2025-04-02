@@ -4,11 +4,12 @@ import PocketBase from 'pocketbase';
 
 // Create context
 const AuthContext = createContext(null);
+const pb_url = process.env.EXPO_PUBLIC_POCKETBASE_URL;
 
 // PocketBase client initialization with error handling
 const initPocketBase = () => {
   try {
-    const pb = new PocketBase("http://192.168.1.7:8090");
+    const pb = new PocketBase(pb_url);
     return pb;
   } catch (error) {
     console.error('Failed to initialize PocketBase:', error);

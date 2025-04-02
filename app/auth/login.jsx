@@ -13,7 +13,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
       await login(email, password);
-      router.replace("/screens/home");
+      router.replace("/tabs/driver");
     } catch (error) {
       alert("Login failed. Please check your credentials.");
     }

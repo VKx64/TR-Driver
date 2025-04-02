@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, User, Settings, Wrench } from "lucide-react-native";
+import { Home, Settings, Wrench, Droplet } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TouchableOpacity, View } from "react-native";
 
@@ -37,14 +37,14 @@ export default function TabLayout() {
           name="fuel"
           options={{
             title: "Fuel",
-            tabBarIcon: ({ color }) => <Wrench size={25} color={color} />,
+            tabBarIcon: ({ color }) => <Droplet size={25} color={color} />,
           }}
         />
 
         <Tabs.Screen
           name="settings"
           options={{
-            title: "settings",
+            title: "Settings",
             tabBarIcon: ({ color }) => <Settings size={25} color={color} />,
           }}
         />

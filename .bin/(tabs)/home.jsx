@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
-import { useAuth } from "../../contexts/AuthContext"; // Import the useAuth hook
+import { useAuth } from "../../../contexts/AuthContext"; // Import the useAuth hook
 import { useRouter } from "expo-router"; // Import the useRouter hook
 
 export default function HomeScreen() {
