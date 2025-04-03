@@ -1,17 +1,9 @@
 import { View, Text, SafeAreaView, TouchableOpacity, TextInput, ScrollView, Alert, Image, Platform } from 'react-native';
 import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import ModalHeader from '../../components/ModalHeader';
 import { newFleetFuel } from '../../services/fleet_fuels/newFleetFuel';
-
-// Mock images for development (add more as needed)
-const MOCK_IMAGES = [
-  { id: 1, url: 'https://placehold.co/300x200/png?text=Receipt+1', label: 'Sample Receipt 1' },
-  { id: 2, url: 'https://placehold.co/300x200/png?text=Receipt+2', label: 'Sample Receipt 2' },
-  { id: 3, url: 'https://placehold.co/300x200/png?text=Gas+Receipt', label: 'Gas Receipt' },
-];
 
 const NewFuel = ({ route, closeModal }) => {
   const { truckId } = route?.params || {};
@@ -19,62 +11,36 @@ const NewFuel = ({ route, closeModal }) => {
   const [fuelAmount, setFuelAmount] = useState('');
   const [fuelPrice, setFuelPrice] = useState('');
   const [odometerReading, setOdometerReading] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Replace date picker with text inputs
+  const [dateString, setDateString] = useState('');
+  const [timeString, setTimeString] = useState('');
+
   const [receiptImage, setReceiptImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State for development image picker
-  const [showDevImagePicker, setShowDevImagePicker] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-
-  const onDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || date;
-    setShowDatePicker(false);
-    setDate(currentDate);
-    setShowTimePicker(true);
-  };
-
-  const onTimeChange = (event, selectedTime) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      const newDateTime = new Date(date);
-      newDateTime.setHours(selectedTime.getHours());
-      newDateTime.setMinutes(selectedTime.getMinutes());
-      setDate(newDateTime);
-    }
-  };
-
-  const formatDateTime = (dateObj) => {
-    return dateObj.toLocaleString('en-PH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
-
+  // Add these image picker functions
   const takePhoto = async () => {
     try {
+      // Request camera permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need camera permissions to take a photo');
+        Alert.alert('Permission needed', 'We need camera permission to take photos');
         return;
       }
 
+      // Launch camera
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log('Camera photo taken:', result.assets[0]);
         setReceiptImage(result.assets[0]);
-        console.log('Photo taken:', result.assets[0]);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -84,22 +50,25 @@ const NewFuel = ({ route, closeModal }) => {
 
   const pickImage = async () => {
     try {
+      // Request media library permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need media library permissions to select a photo');
+        Alert.alert('Permission needed', 'We need media library permission to select photos');
         return;
       }
 
+      // Launch image library
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log('Image selected from library:', result.assets[0]);
         setReceiptImage(result.assets[0]);
-        console.log('Image selected:', result.assets[0]);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -107,104 +76,49 @@ const NewFuel = ({ route, closeModal }) => {
     }
   };
 
+  // Parse date from strings when submitting
+  const getDateFromInput = () => {
+    try {
+      // Default to current date/time if not provided
+      if (!dateString || !timeString) {
+        return new Date();
+      }
+
+      // Simple validation
+      if (!dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        throw new Error('Invalid date format');
+      }
+
+      // Parse date and time
+      const [year, month, day] = dateString.split('-').map(Number);
+      let hours = 0, minutes = 0;
+
+      if (timeString && timeString.includes(':')) {
+        [hours, minutes] = timeString.split(':').map(Number);
+      }
+
+      // Months in JS Date are 0-indexed
+      return new Date(year, month - 1, day, hours, minutes);
+    } catch (error) {
+      console.warn('Error parsing date:', error);
+      return new Date(); // Fallback to current date
+    }
+  };
+
   const removeImage = () => {
     setReceiptImage(null);
   };
 
-  // Development-friendly image picker
-  const handleDevImageSelection = (url) => {
-    // Create a mock image object similar to what expo-image-picker would return
-    const mockImage = {
-      uri: url,
-      width: 300,
-      height: 200,
-      type: 'image/jpeg',
-      fileName: `mock_receipt_${Date.now()}.jpg`,
-    };
-    
-    setReceiptImage(mockImage);
-    setShowDevImagePicker(false);
-    console.log('Selected mock image:', mockImage);
-  };
-
-  // Handle URL input for development
-  const handleUrlSubmit = () => {
-    if (!imageUrl) {
-      Alert.alert('Error', 'Please enter a valid image URL');
-      return;
-    }
-    
-    handleDevImageSelection(imageUrl);
-    setImageUrl('');
-  };
-
-  // Combined image picker that shows either native or dev options
+  // Show only camera and gallery options
   const showImageOptions = () => {
-    if (Platform.OS === 'web' || __DEV__) {
-      setShowDevImagePicker(true);
-    } else {
-      Alert.alert(
-        'Add Receipt Image',
-        'Choose an option',
-        [
-          { text: 'Take Photo', onPress: takePhoto },
-          { text: 'Choose from Library', onPress: pickImage },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
-    }
-  };
-
-  // UI for development image picker
-  const renderDevImagePicker = () => {
-    if (!showDevImagePicker) return null;
-    
-    return (
-      <View className="absolute top-0 left-0 right-0 bottom-0 bg-white z-10 p-4">
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-lg font-bold">Select Image (Development)</Text>
-          <TouchableOpacity onPress={() => setShowDevImagePicker(false)}>
-            <Ionicons name="close-circle" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        
-        <Text className="text-gray-600 mb-2">Enter image URL:</Text>
-        <View className="flex-row mb-4">
-          <TextInput
-            className="border border-gray-300 rounded-lg px-3 py-2 flex-1 mr-2"
-            value={imageUrl}
-            onChangeText={setImageUrl}
-            placeholder="https://example.com/image.jpg"
-            placeholderTextColor="#9CA3AF"
-          />
-          <TouchableOpacity 
-            onPress={handleUrlSubmit}
-            className="bg-blue-500 px-4 rounded-lg justify-center"
-          >
-            <Text className="text-white font-medium">Use</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Text className="text-gray-600 mb-2">Or select a sample image:</Text>
-        <ScrollView>
-          {MOCK_IMAGES.map(img => (
-            <TouchableOpacity 
-              key={img.id} 
-              className="mb-3 border border-gray-200 rounded-lg overflow-hidden"
-              onPress={() => handleDevImageSelection(img.url)}
-            >
-              <Image 
-                source={{ uri: img.url }} 
-                className="w-full h-40" 
-                resizeMode="cover"
-              />
-              <View className="p-2 bg-gray-50">
-                <Text className="font-medium">{img.label}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+    Alert.alert(
+      'Add Receipt Image',
+      'Choose an option',
+      [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickImage },
+        { text: 'Cancel', style: 'cancel' }
+      ]
     );
   };
 
@@ -214,9 +128,11 @@ const NewFuel = ({ route, closeModal }) => {
       return;
     }
 
+    const refuelDate = getDateFromInput();
+
     const payload = {
       fleet: truckId,
-      date: date.toISOString(),
+      date: refuelDate.toISOString(),
       fuel_amount: parseFloat(fuelAmount),
       fuel_price: parseFloat(fuelPrice),
       odometer_reading: parseInt(odometerReading),
@@ -259,37 +175,33 @@ const NewFuel = ({ route, closeModal }) => {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <ModalHeader title="Add Refuel Record" onBack={closeModal} />
-      {renderDevImagePicker()}
       <ScrollView className="flex-1 p-4 pb-24">
         <View className="bg-white rounded-lg mb-6">
           <Text className="text-gray-800 font-bold text-lg mb-4">Refuel Details</Text>
+
+          {/* Replace DateTimePicker with simple text inputs */}
           <View className="mb-4">
-            <Text className="text-gray-600 mb-1">Date and Time</Text>
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
-              className="border border-gray-300 rounded-lg px-3 py-2 flex-row justify-between items-center"
-            >
-              <Text>{formatDateTime(date)}</Text>
-              <Ionicons name="calendar-outline" size={20} color="#666" />
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
-              />
-            )}
-            {showTimePicker && (
-              <DateTimePicker
-                value={date}
-                mode="time"
-                display="default"
-                onChange={onTimeChange}
-                is24Hour={true}
-              />
-            )}
+            <Text className="text-gray-600 mb-1">Date (YYYY-MM-DD)</Text>
+            <TextInput
+              className="border border-gray-300 rounded-lg px-3 py-2"
+              value={dateString}
+              onChangeText={setDateString}
+              placeholder="2025-04-02"
+              placeholderTextColor="#9CA3AF"
+            />
           </View>
+
+          <View className="mb-4">
+            <Text className="text-gray-600 mb-1">Time (HH:MM)</Text>
+            <TextInput
+              className="border border-gray-300 rounded-lg px-3 py-2"
+              value={timeString}
+              onChangeText={setTimeString}
+              placeholder="14:30"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+
           <View className="mb-4">
             <Text className="text-gray-600 mb-1">Fuel Amount (liters)</Text>
             <TextInput
@@ -340,15 +252,26 @@ const NewFuel = ({ route, closeModal }) => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View className="flex-row justify-center space-x-4">
-                {/* Replace the two separate buttons with a single one for development */}
+              <View className="flex-row justify-center space-x-3">
+                {/* Camera button */}
                 <TouchableOpacity
-                  onPress={showImageOptions}
+                  onPress={takePhoto}
+                  className="bg-blue-600 p-3 rounded-lg flex-1 flex-row justify-center items-center"
+                >
+                  <Ionicons name="camera" size={20} color="white" />
+                  <Text className="text-white font-medium ml-2">
+                    Take Photo
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Gallery button */}
+                <TouchableOpacity
+                  onPress={pickImage}
                   className="bg-blue-500 p-3 rounded-lg flex-1 flex-row justify-center items-center"
                 >
-                  <Ionicons name="image" size={20} color="white" />
+                  <Ionicons name="images" size={20} color="white" />
                   <Text className="text-white font-medium ml-2">
-                    {Platform.OS === 'web' || __DEV__ ? 'Select Image' : 'Add Receipt Image'}
+                    Gallery
                   </Text>
                 </TouchableOpacity>
               </View>

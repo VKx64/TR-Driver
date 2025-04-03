@@ -1,4 +1,6 @@
 import { pb } from "../pocketbase";
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Format the data for the response
 function formatData(records) {
@@ -13,36 +15,43 @@ function formatData(records) {
   };
 }
 
-/**
- * Fetches all fleet IDs and plates for the currently authenticated driver
- * Uses the current user from PocketBase auth store
- *
- * @returns {Promise<Object>} Object containing fleetCount and fleetPairs
- */
-export async function fetchAllFleetIds() {
-  try {
-    // Check if user is authenticated
-    if (!pb.authStore.isValid || !pb.authStore.model?.id) {
-      console.warn("⚠️ No authenticated user when fetching fleet data");
-      return formatData([]);
+// Create a React hook version that uses AuthContext
+export function useFleets() {
+  const { user } = useAuth();
+  const [data, setData] = useState({ fleetCount: 0, fleetPairs: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadFleets() {
+      try {
+        if (!user?.id) {
+          console.warn("⚠️ No authenticated user when fetching fleet data");
+          setData(formatData([]));
+          setLoading(false);
+          return;
+        }
+
+        const driverId = user.id;
+
+        const records = await pb.collection("fleets").getFullList({
+          fields: "id,plate",
+          filter: `driver = "${driverId}"`,
+          requestKey: null,
+          $autoCancel: false,
+        });
+
+        console.log(`✅ Successfully fetched ${records.length} fleets for driver ${driverId}`);
+        setData(formatData(records));
+      } catch (error) {
+        console.error("❌ Error fetching fleet data:", error);
+        setData(formatData([]));
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const driverId = pb.authStore.model.id;
+    loadFleets();
+  }, [user]);
 
-    // Get all fleet records with ID and plate fields that are associated with the driver
-    const records = await pb.collection("fleets").getFullList({
-      fields: "id,plate",
-      filter: `driver = "${driverId}"`,
-      requestKey: null,
-      $autoCancel: false,
-    });
-
-    // Log success and return the formatted data
-    console.log(`✅ Successfully fetched ${records.length} fleets for driver ${driverId}`);
-    return formatData(records);
-  } catch (error) {
-    // Handle errors and return empty structure
-    console.error("❌ Error fetching fleet data:", error);
-    return formatData([]);
-  }
+  return { fleets: data, loading };
 }

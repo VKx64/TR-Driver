@@ -52,7 +52,7 @@ export default function WelcomeCard() {
         </View>
 
         {/* User Avatar */}
-        <View className="h-full aspect-square rounded-full bg-blue-100 overflow-hidden items-center justify-center">
+        <View className="h-14 aspect-square rounded-full bg-blue-100 overflow-hidden items-center justify-center">
           {avatarUrl ? (
             <Image
               source={{ uri: avatarUrl }}

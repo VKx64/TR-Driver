@@ -17,8 +17,7 @@ export default function PageHeader({ title }) {
         headerLeft: () => (
           <TouchableOpacity
             onPress={() => router.back()}
-            className="ml-2 p-2"
-          >
+            className="">
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
         ),

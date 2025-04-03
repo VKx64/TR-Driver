@@ -54,7 +54,6 @@ export async function newFleetFuel(data) {
       fuel_amount: data.fuel_amount,
       fuel_price: data.fuel_price,
       odometer_reading: data.odometer_reading,
-      hasReceipt: !!data.receiptImage
     });
 
     // Create the record with all data in one request

@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { router } from 'expo-router';
 import WelcomeCard from '../../components/WelcomeCard';
 import NavigationCard from '../../components/NavigationCard';
+import FleetCard from '../../components/FleetCard';
 
 export default function Home() {
   const navigateToMaintenance = () => {
@@ -36,6 +37,14 @@ export default function Home() {
           description="Log fuel purchases and refueling"
           onPress={navigateToRefuel}
         />
+      </View>
+
+
+      <View className='flex flex-col gap-2'>
+        <Text className='font-semibold text-base'>
+          Driver Trucks
+        </Text>
+        <FleetCard />
       </View>
 
       {/* You can add more components/sections below */}

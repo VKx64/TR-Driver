@@ -4,42 +4,21 @@ import { useNavigation } from '@react-navigation/native';
 import PageHeader from '../../components/PageHeader';
 import TruckDropdown from '../../components/TruckDropdown';
 import FuelHistoryCard from '../../components/FuelHistoryCard';
-import { fetchAllFleetIds } from '../../services/fleets/fetchAllFleets';
+import { useFleets } from '../../services/fleets/fetchAllFleets';
 import { fetchFleetFuels } from '../../services/fleets/fetchFleetFuels';
 import { Ionicons } from '@expo/vector-icons';
 import NewFuel from '../forms/newfuel';
 
 const Refuel = () => {
   const navigation = useNavigation();
-  // State for trucks and selected truck
-  const [trucks, setTrucks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Use the new hook to get fleet data
+  const { fleets, loading: loadingFleets } = useFleets();
+
   const [selectedTruck, setSelectedTruck] = useState(null);
   // New state for fuel history
   const [fuelHistory, setFuelHistory] = useState([]);
   const [loadingFuelData, setLoadingFuelData] = useState(false);
   const [showNewFuelModal, setShowNewFuelModal] = useState(false);
-
-  // Fetch trucks when component mounts
-  useEffect(() => {
-    async function loadTrucks() {
-      try {
-        setLoading(true);
-        const result = await fetchAllFleetIds();
-        console.log("Fetched fleet data:", result);
-
-        // Update trucks state with the fleet pairs
-        setTrucks(result.fleetPairs || []);
-      } catch (error) {
-        console.error("Error loading trucks:", error);
-        setTrucks([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadTrucks();
-  }, []);
 
   // Fetch fuel history when a truck is selected
   useEffect(() => {
@@ -119,14 +98,6 @@ const Refuel = () => {
       <View className="flex-1 relative">
         {selectedTruck ? (
           <ScrollView className="flex-1 p-4 pb-24 bg-gray-100">
-            {/* Fuel History Header */}
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold">Refuel Log</Text>
-              <View className="bg-blue-100 px-3 py-1 rounded-full">
-                <Text className="text-blue-800 font-medium">{selectedTruck.plate}</Text>
-              </View>
-            </View>
-
             {/* Loading state for fuel data */}
             {loadingFuelData ? (
               <View className="flex-1 justify-center items-center py-10">
@@ -157,14 +128,14 @@ const Refuel = () => {
         {/* Fixed Bottom Area with Truck Dropdown and Button */}
         <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
           {/* Truck Selector Dropdown */}
-          {loading ? (
+          {loadingFleets ? (
             <Text className="text-gray-600 p-2 text-center mb-3">Loading trucks...</Text>
-          ) : trucks.length === 0 ? (
+          ) : fleets.fleetPairs.length === 0 ? (
             <Text className="text-gray-600 p-2 text-center mb-3">No trucks available</Text>
           ) : (
             <View className="mb-3">
               <TruckDropdown
-                trucks={trucks}
+                trucks={fleets.fleetPairs}
                 selectedTruck={selectedTruck}
                 onSelect={handleTruckSelect}
               />
