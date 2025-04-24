@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Enhanced dropdown component for selecting trucks with search and scrollable list
- * Dropdown opens above the button instead of below it
+ * Dropdown opens below the button instead of above it
  *
  * @param {Object} props - Component props
  * @param {Array} props.trucks - Array of truck objects to display in dropdown
@@ -57,15 +57,31 @@ export default function TruckDropdown({
 
   return (
     <View className="relative">
-      {/* Dropdown Content - Positioned above the button */}
+      {/* Dropdown Button */}
+      <TouchableOpacity
+        ref={dropdownRef}
+        onPress={toggleDropdown}
+        className="bg-white border border-gray-300 rounded-lg p-3 flex-row justify-between items-center z-10"
+      >
+        <Text className="text-gray-800">
+          {selectedTruck ? `${selectedTruck.plate}` : "Select a truck"}
+        </Text>
+        <Ionicons
+          name={isOpen ? "chevron-up" : "chevron-down"}
+          size={20}
+          color="#666"
+        />
+      </TouchableOpacity>
+
+      {/* Dropdown Content - Positioned below the button */}
       {isOpen && (
         <View
           className="absolute bg-white border border-gray-300 rounded-lg shadow-lg z-20"
           style={{
-            bottom: '100%',  // Position above the button
+            top: '100%',  // Position below the button
             left: 0,
             right: 0,
-            marginBottom: 8,  // Space between dropdown and button
+            marginTop: 8,  // Space between dropdown and button
             elevation: 5
           }}
         >
@@ -78,7 +94,6 @@ export default function TruckDropdown({
                 placeholder="Search trucks..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                autoFocus
                 style={{ outlineStyle: 'none' }}
                 selectionColor="#2563EB"
               />
@@ -112,22 +127,6 @@ export default function TruckDropdown({
         </View>
       )}
 
-      {/* Dropdown Button */}
-      <TouchableOpacity
-        ref={dropdownRef}
-        onPress={toggleDropdown}
-        className="bg-white border border-gray-300 rounded-lg p-3 flex-row justify-between items-center z-10"
-      >
-        <Text className="text-gray-800">
-          {selectedTruck ? `${selectedTruck.plate}` : "Select a truck"}
-        </Text>
-        <Ionicons
-          name={isOpen ? "chevron-down" : "chevron-up"} // Reversed the icon direction for better UX
-          size={20}
-          color="#666"
-        />
-      </TouchableOpacity>
-
       {/* Overlay to capture outside clicks when dropdown is open */}
       {isOpen && (
         <TouchableWithoutFeedback onPress={handleOutsideClick}>
@@ -135,10 +134,10 @@ export default function TruckDropdown({
             className="fixed inset-0"
             style={{
               position: 'absolute',
-              top: -1000,
+              top: 0,
               left: 0,
               right: 0,
-              bottom: 0,
+              bottom: -9999,
               height: 9999,
               width: '100%',
               zIndex: 10

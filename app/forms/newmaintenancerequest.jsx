@@ -1,36 +1,39 @@
-import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import ModalHeader from '../../components/ModalHeader';
 import { fetchMaintenanceByFleet } from '../../services/maintenance/fetchMaintenance';
-import { pb } from '../../services/pocketbase';
+import { createMaintenanceRequest } from '../../services/maintenance_request/createMaintenanceRequest';
+import { useAuth } from '../../contexts/AuthContext';
 
 const NewMaintenanceRequest = ({ truckId, closeModal }) => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [maintenanceTasks, setMaintenanceTasks] = useState([]);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
-  const [selectedTaskName, setSelectedTaskName] = useState("Select a maintenance task");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [currentMileage, setCurrentMileage] = useState('');
+  const [mileageError, setMileageError] = useState(null);
   const [error, setError] = useState(null);
   const [showTasksModal, setShowTasksModal] = useState(false);
 
-  // Fetch maintenance tasks for the selected truck
+  // Fetch all maintenance tasks
   useEffect(() => {
     const fetchTasks = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        if (truckId) {
-          const tasks = await fetchMaintenanceByFleet(truckId);
-          console.log('Fetched maintenance tasks:', tasks);
-          setMaintenanceTasks(tasks);
-          if (tasks.length > 0) {
-            setSelectedTaskId(tasks[0].id);
-            setSelectedTaskName(
-              `${tasks[0].taskName} (Every ${tasks[0].formattedInterval})`
-            );
-          }
+        // Getting all maintenance types from the maintenance_type collection
+        const tasks = await fetchMaintenanceByFleet();
+        console.log(`Fetched ${tasks.length} maintenance tasks`);
+        setMaintenanceTasks(tasks);
+
+        // Set the first task as default if available
+        if (tasks.length > 0) {
+          setSelectedTaskId(tasks[0].id);
+          setSelectedTask(tasks[0]);
         }
       } catch (err) {
         console.error('Error fetching maintenance tasks:', err);
@@ -41,12 +44,28 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
     };
 
     fetchTasks();
-  }, [truckId]);
+  }, []);
 
   const handleTaskSelect = (task) => {
     setSelectedTaskId(task.id);
-    setSelectedTaskName(`${task.taskName} (Every ${task.formattedInterval})`);
+    setSelectedTask(task);
     setShowTasksModal(false);
+  };
+
+  const validateMileage = () => {
+    if (!currentMileage || currentMileage.trim() === '') {
+      setMileageError('Current mileage is required');
+      return false;
+    }
+
+    const mileageValue = parseFloat(currentMileage);
+    if (isNaN(mileageValue) || mileageValue < 0) {
+      setMileageError('Please enter a valid mileage value');
+      return false;
+    }
+
+    setMileageError(null);
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -55,20 +74,27 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
       return;
     }
 
+    if (!validateMileage()) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Create a new maintenance request
+      // Create a new maintenance request using the service function with proper field names
       const data = {
-        fleet: truckId,
-        maintenance: selectedTaskId,
+        truckId: truckId,
+        maintenanceTypeId: selectedTaskId,
         status: 'pending',
+        current_mileage_at_request: parseFloat(currentMileage), // This matches the database column name
+        request_date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+        requesting_driver: user?.id // Add the requesting driver ID from AuthContext
       };
 
       console.log('Submitting maintenance request:', data);
 
-      // Submit to PocketBase using the maintenance_request collection
-      const record = await pb.collection('maintenance_request').create(data);
+      // Call the service function to create the request
+      await createMaintenanceRequest(data);
 
       Alert.alert('Success', 'Maintenance request submitted successfully', [
         { text: 'OK', onPress: closeModal }
@@ -79,6 +105,12 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper to display selected task name and interval
+  const getSelectedTaskDisplay = () => {
+    if (!selectedTask) return "Select a maintenance task";
+    return selectedTask.taskName;
   };
 
   return (
@@ -102,20 +134,57 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
           ) : maintenanceTasks.length === 0 ? (
             <View className="bg-yellow-50 p-4 rounded-lg mb-4">
               <Text className="text-amber-800 text-center">
-                No maintenance tasks defined for this truck. Please add maintenance tasks first.
+                No maintenance tasks available. Please contact an administrator to set up maintenance tasks.
               </Text>
             </View>
           ) : (
-            <View className="mb-4">
-              <Text className="text-gray-600 mb-1">Maintenance Task</Text>
-              <TouchableOpacity
-                className="border border-gray-300 rounded-lg p-3 flex-row justify-between items-center"
-                onPress={() => setShowTasksModal(true)}
-                disabled={isSubmitting}
-              >
-                <Text className="text-gray-700">{selectedTaskName}</Text>
-                <Ionicons name="chevron-down" size={20} color="#6b7280" />
-              </TouchableOpacity>
+            <View>
+              <View className="mb-4">
+                <Text className="text-gray-600 mb-1">Maintenance Task</Text>
+                <TouchableOpacity
+                  className="border border-gray-300 rounded-lg p-3 flex-row justify-between items-center"
+                  onPress={() => setShowTasksModal(true)}
+                  disabled={isSubmitting}
+                >
+                  <Text className="text-gray-700 font-medium">{getSelectedTaskDisplay()}</Text>
+                  <Ionicons name="chevron-down" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Current mileage input field */}
+              <View className="mb-4">
+                <Text className="text-gray-600 mb-1">Current Truck Mileage (km) *</Text>
+                <TextInput
+                  className={`border ${mileageError ? 'border-red-500' : 'border-gray-300'} rounded-lg p-3 text-gray-700`}
+                  value={currentMileage}
+                  onChangeText={(text) => {
+                    setCurrentMileage(text.replace(/[^0-9.]/g, ''));
+                    if (mileageError) validateMileage();
+                  }}
+                  placeholder="Enter current truck mileage"
+                  keyboardType="numeric"
+                  editable={!isSubmitting}
+                />
+                {mileageError && (
+                  <Text className="text-red-500 text-sm mt-1">{mileageError}</Text>
+                )}
+              </View>
+
+              {selectedTask && (
+                <View className="mb-4 bg-gray-50 p-4 rounded-lg">
+                  <View className="mb-2">
+                    <Text className="text-gray-500 text-sm">Recurrence</Text>
+                    <Text className="text-gray-700">{selectedTask.formattedInterval}</Text>
+                  </View>
+
+                  {selectedTask.description ? (
+                    <View>
+                      <Text className="text-gray-500 text-sm">Description</Text>
+                      <Text className="text-gray-700">{selectedTask.description}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -147,6 +216,12 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
                   <View className="flex-1">
                     <Text className="text-gray-800 font-medium">{task.taskName}</Text>
                     <Text className="text-gray-500 text-sm">Every {task.formattedInterval}</Text>
+
+                    {task.description ? (
+                      <Text className="text-gray-500 text-sm mt-1 italic" numberOfLines={1}>
+                        {task.description}
+                      </Text>
+                    ) : null}
                   </View>
                   {selectedTaskId === task.id && (
                     <Ionicons name="checkmark-circle" size={24} color="#4f46e5" />
@@ -161,9 +236,9 @@ const NewMaintenanceRequest = ({ truckId, closeModal }) => {
       <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={isSubmitting || isLoading || maintenanceTasks.length === 0}
+          disabled={isSubmitting || isLoading || maintenanceTasks.length === 0 || !selectedTaskId}
           className={`${
-            isSubmitting || isLoading || maintenanceTasks.length === 0
+            isSubmitting || isLoading || maintenanceTasks.length === 0 || !selectedTaskId
               ? 'bg-gray-400'
               : 'bg-blue-600'
           } rounded-lg py-3 flex-row justify-center items-center`}

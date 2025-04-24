@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 function formatData(records) {
   const fleetPairs = records.map(record => ({
     id: record.id || "Unknown",
-    plate: record.plate || 'Unknown'
+    plate: record.plate_number || 'Unknown' // Updated to use plate_number field
   }));
 
   return {
@@ -31,16 +31,18 @@ export function useFleets() {
           return;
         }
 
-        const driverId = user.id;
+        const userId = user.id;
+        console.log(`🔍 Fetching trucks for user ID: ${userId}`);
 
-        const records = await pb.collection("fleets").getFullList({
-          fields: "id,plate",
-          filter: `driver = "${driverId}"`,
+        // Updated to use trucks collection and users_id relation field
+        const records = await pb.collection("trucks").getFullList({
+          fields: "id,plate_number", // Updated to use plate_number
+          filter: `users_id = "${userId}"`, // Updated to use users_id relation
           requestKey: null,
           $autoCancel: false,
         });
 
-        console.log(`✅ Successfully fetched ${records.length} fleets for driver ${driverId}`);
+        console.log(`✅ Successfully fetched ${records.length} trucks for user ${userId}`);
         setData(formatData(records));
       } catch (error) {
         console.error("❌ Error fetching fleet data:", error);

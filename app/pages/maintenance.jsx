@@ -2,8 +2,7 @@ import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicat
 import React, { useState, useEffect } from 'react';
 import { useRoute } from '@react-navigation/native';
 import PageHeader from '../../components/PageHeader';
-import MaintenanceRequestCard, { MAINTENANCE_DUMMY_DATA } from '../../components/MaintenanceRequestCard';
-import TruckDropdown from '../../components/TruckDropdown';
+import MaintenanceRequestCard from '../../components/MaintenanceRequestCard';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchMaintenanceRequestByFleet } from '../../services/maintenance_request/fetchMaintenanceRequest';
 import { useFleets } from '../../services/fleets/fetchAllFleets';
@@ -11,7 +10,7 @@ import NewMaintenanceRequest from '../forms/newmaintenancerequest';
 
 const Maintenance = () => {
   const route = useRoute();
-  // If fleetId is provided in route params, use it as initial selected truck
+  // Get fleetId from route params if provided
   const routeFleetId = route.params?.fleetId;
 
   // Use the fleet hook to get all fleets
@@ -23,12 +22,12 @@ const Maintenance = () => {
   const [selectedTruck, setSelectedTruck] = useState(null);
   const [showNewMaintenanceModal, setShowNewMaintenanceModal] = useState(false);
 
-  // Set initial selected truck if fleetId is provided in route
+  // Find the selected truck from fleets when data is loaded
   useEffect(() => {
-    if (routeFleetId && fleets.fleetPairs.length > 0) {
-      const initialTruck = fleets.fleetPairs.find(truck => truck.id === routeFleetId);
-      if (initialTruck) {
-        setSelectedTruck(initialTruck);
+    if (routeFleetId && fleets.fleetPairs?.length > 0) {
+      const foundTruck = fleets.fleetPairs.find(truck => truck.id === routeFleetId);
+      if (foundTruck) {
+        setSelectedTruck(foundTruck);
       }
     }
   }, [routeFleetId, fleets.fleetPairs]);
@@ -65,13 +64,6 @@ const Maintenance = () => {
     }
   };
 
-  // Handle truck selection
-  const handleTruckSelect = (truck) => {
-    setSelectedTruck(truck);
-    console.log('Selected truck ID:', truck.id);
-    console.log('Selected truck plate:', truck.plate);
-  };
-
   const handleRequestPress = (requestId) => {
     console.log(`Maintenance request ${requestId} pressed`);
     // Handle navigation to detail view or other actions
@@ -95,7 +87,7 @@ const Maintenance = () => {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <PageHeader
-        title="Truck Maintenance"
+        title={selectedTruck ? `${selectedTruck.plate} Maintenance` : "Truck Maintenance"}
         showBack={true}
       />
 
@@ -108,6 +100,15 @@ const Maintenance = () => {
             onRefresh={handleRefresh}
             showsVerticalScrollIndicator={false}
           >
+            {/* Selected Truck Info */}
+            <View className="mb-4 bg-white p-4 rounded-lg shadow-sm">
+              <Text className="text-sm text-gray-500">Selected Truck</Text>
+              <Text className="text-lg font-bold text-gray-900">{selectedTruck.plate}</Text>
+              {selectedTruck.type && (
+                <Text className="text-gray-600">{selectedTruck.type}</Text>
+              )}
+            </View>
+
             {/* Loading state for maintenance data */}
             {loading ? (
               <View className="flex-1 justify-center items-center py-10">
@@ -149,30 +150,14 @@ const Maintenance = () => {
             <Ionicons name="car-outline" size={64} color="#d1d5db" />
             <Text className="text-xl font-semibold text-gray-500 mt-4 mb-2">No truck selected</Text>
             <Text className="text-gray-400 text-center">
-              Select a truck from the dropdown below to view its maintenance history
+              Go back and select a truck from the driver page to view its maintenance history
             </Text>
           </View>
         )}
 
-        {/* Fixed Bottom Area with Truck Dropdown and Button */}
-        <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-          {/* Truck Selector Dropdown */}
-          {loadingFleets ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">Loading trucks...</Text>
-          ) : fleets.fleetPairs.length === 0 ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">No trucks available</Text>
-          ) : (
-            <View className="mb-3">
-              <TruckDropdown
-                trucks={fleets.fleetPairs}
-                selectedTruck={selectedTruck}
-                onSelect={handleTruckSelect}
-              />
-            </View>
-          )}
-
-          {/* Add Maintenance Button - Only shown when a truck is selected */}
-          {selectedTruck && (
+        {/* Fixed Bottom Area with Add Maintenance Button - Only shown when a truck is selected */}
+        {selectedTruck && (
+          <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
             <TouchableOpacity
               onPress={handleAddRequest}
               className="bg-blue-600 rounded-lg py-3 flex-row justify-center items-center"
@@ -180,11 +165,11 @@ const Maintenance = () => {
               <Ionicons name="add-circle-outline" size={20} color="white" />
               <Text className="text-white font-bold text-center ml-2">Add Maintenance Request</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
       </View>
 
-      {/* New Maintenance Modal - Replace placeholder with actual form */}
+      {/* New Maintenance Modal */}
       {selectedTruck && showNewMaintenanceModal && (
         <Modal
           visible={showNewMaintenanceModal}

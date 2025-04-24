@@ -10,7 +10,7 @@ const FleetCard = ({
   selected = false
 }) => {
   // Default image if none provided
-  const defaultImage = 'https://th.bing.com/th/id/R.76ea7ce2aef9ec91eb06a7b5abd6e33c?rik=2p4Q51SAN0Bc%2bw&riu=http%3a%2f%2fwww.9to5carwallpapers.com%2fwp-content%2fuploads%2f2014%2f02%2fTruck-On-Road-HD-Wallpapers.jpg&ehk=Eb10aF4Zl12bVMkrRem8NeA6iLhpIUyUwbh8XYtzFcw%3d&risl=&pid=ImgRaw&r=0';
+  const defaultImage = 'https://t4.ftcdn.net/jpg/00/26/80/01/360_F_26800115_YlmErNLIVZeNZXPzUc3z4GAD1gGkVABu.jpg';
 
   return (
     <TouchableOpacity

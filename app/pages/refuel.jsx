@@ -1,17 +1,20 @@
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import PageHeader from '../../components/PageHeader';
-import TruckDropdown from '../../components/TruckDropdown';
 import FuelHistoryCard from '../../components/FuelHistoryCard';
-import { useFleets } from '../../services/fleets/fetchAllFleets';
 import { fetchFleetFuels } from '../../services/fleets/fetchFleetFuels';
 import { Ionicons } from '@expo/vector-icons';
 import NewFuel from '../forms/newfuel';
+import { useFleets } from '../../services/fleets/fetchAllFleets';
 
 const Refuel = () => {
   const navigation = useNavigation();
-  // Use the new hook to get fleet data
+  const route = useRoute();
+  // Get fleetId from route params if provided
+  const routeFleetId = route.params?.fleetId;
+
+  // Use the fleet hook to get all fleets
   const { fleets, loading: loadingFleets } = useFleets();
 
   const [selectedTruck, setSelectedTruck] = useState(null);
@@ -19,6 +22,16 @@ const Refuel = () => {
   const [fuelHistory, setFuelHistory] = useState([]);
   const [loadingFuelData, setLoadingFuelData] = useState(false);
   const [showNewFuelModal, setShowNewFuelModal] = useState(false);
+
+  // Find the selected truck from fleets when data is loaded
+  useEffect(() => {
+    if (routeFleetId && fleets.fleetPairs?.length > 0) {
+      const foundTruck = fleets.fleetPairs.find(truck => truck.id === routeFleetId);
+      if (foundTruck) {
+        setSelectedTruck(foundTruck);
+      }
+    }
+  }, [routeFleetId, fleets.fleetPairs]);
 
   // Fetch fuel history when a truck is selected
   useEffect(() => {
@@ -44,14 +57,6 @@ const Refuel = () => {
     loadFuelHistory();
   }, [selectedTruck]);
 
-  // Handle truck selection
-  const handleTruckSelect = (truck) => {
-    setSelectedTruck(truck);
-    // Log the ID and plate of the selected truck
-    console.log('Selected truck ID:', truck.id);
-    console.log('Selected truck plate:', truck.plate);
-  };
-
   // Handle add new refuel - Updated to show modal instead of navigate
   const handleAddNewRefuel = () => {
     if (selectedTruck) {
@@ -64,9 +69,9 @@ const Refuel = () => {
   const mapFuelDataToCardFormat = (fuelData) => {
     // Format the date to human readable format including time
     let formattedDate = "Unknown date";
-    if (fuelData.date) {
+    if (fuelData.created) {
       try {
-        const dateObj = new Date(fuelData.date);
+        const dateObj = new Date(fuelData.created);
         formattedDate = dateObj.toLocaleString('en-PH', {
           year: 'numeric',
           month: 'long',
@@ -89,15 +94,36 @@ const Refuel = () => {
     };
   };
 
+  // Pull to refresh functionality
+  const handleRefresh = () => {
+    if (selectedTruck) {
+      loadFuelHistory(selectedTruck.id);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Use the PageHeader component */}
-      <PageHeader title="Fuel History" />
+      <PageHeader
+        title={selectedTruck ? `${selectedTruck.plate} Fuel History` : "Fuel History"}
+        showBack={true}
+      />
 
       {/* Main Content Area */}
       <View className="flex-1 relative">
         {selectedTruck ? (
-          <ScrollView className="flex-1 p-4 pb-24 bg-gray-100">
+          <ScrollView
+            className="flex-1 p-4 pb-24 bg-gray-100"
+            refreshing={loadingFuelData}
+            onRefresh={handleRefresh}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Selected Truck Info */}
+            <View className="mb-4 bg-white p-4 rounded-lg shadow-sm">
+              <Text className="text-sm text-gray-500">Selected Truck</Text>
+              <Text className="text-lg font-bold text-gray-900">{selectedTruck.plate}</Text>
+            </View>
+
             {/* Loading state for fuel data */}
             {loadingFuelData ? (
               <View className="flex-1 justify-center items-center py-10">
@@ -120,30 +146,14 @@ const Refuel = () => {
             <Ionicons name="car-outline" size={64} color="#d1d5db" />
             <Text className="text-xl font-semibold text-gray-500 mt-4 mb-2">No truck selected</Text>
             <Text className="text-gray-400 text-center">
-              Select a truck from the dropdown below to view its fuel history
+              Go back and select a truck from the driver page to view its fuel history
             </Text>
           </View>
         )}
 
-        {/* Fixed Bottom Area with Truck Dropdown and Button */}
-        <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-          {/* Truck Selector Dropdown */}
-          {loadingFleets ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">Loading trucks...</Text>
-          ) : fleets.fleetPairs.length === 0 ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">No trucks available</Text>
-          ) : (
-            <View className="mb-3">
-              <TruckDropdown
-                trucks={fleets.fleetPairs}
-                selectedTruck={selectedTruck}
-                onSelect={handleTruckSelect}
-              />
-            </View>
-          )}
-
-          {/* Add Refuel Button - Only shown when a truck is selected */}
-          {selectedTruck && (
+        {/* Fixed Bottom Area with Add Button */}
+        {selectedTruck && (
+          <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
             <TouchableOpacity
               onPress={handleAddNewRefuel}
               className="bg-blue-600 rounded-lg py-3 flex-row justify-center items-center"
@@ -151,8 +161,8 @@ const Refuel = () => {
               <Ionicons name="add-circle-outline" size={20} color="white" />
               <Text className="text-white font-bold text-center ml-2">Add New Refuel</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
       </View>
 
       {/* New Fuel Modal */}
@@ -164,7 +174,17 @@ const Refuel = () => {
         >
           <NewFuel
             route={{ params: { truckId: selectedTruck.id } }}
-            closeModal={() => setShowNewFuelModal(false)}
+            closeModal={() => {
+              setShowNewFuelModal(false);
+              // Refresh fuel history after adding a new record
+              if (selectedTruck) {
+                fetchFleetFuels(selectedTruck.id).then(data => {
+                  setFuelHistory(data);
+                }).catch(err => {
+                  console.error("Failed to refresh fuel history:", err);
+                });
+              }
+            }}
           />
         </Modal>
       )}

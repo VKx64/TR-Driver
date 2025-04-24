@@ -12,10 +12,7 @@ const NewFuel = ({ route, closeModal }) => {
   const [fuelPrice, setFuelPrice] = useState('');
   const [odometerReading, setOdometerReading] = useState('');
 
-  // Replace date picker with text inputs
-  const [dateString, setDateString] = useState('');
-  const [timeString, setTimeString] = useState('');
-
+  // Receipt image handling - we don't need date/time inputs anymore as we're using the 'created' field
   const [receiptImage, setReceiptImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,35 +73,6 @@ const NewFuel = ({ route, closeModal }) => {
     }
   };
 
-  // Parse date from strings when submitting
-  const getDateFromInput = () => {
-    try {
-      // Default to current date/time if not provided
-      if (!dateString || !timeString) {
-        return new Date();
-      }
-
-      // Simple validation
-      if (!dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        throw new Error('Invalid date format');
-      }
-
-      // Parse date and time
-      const [year, month, day] = dateString.split('-').map(Number);
-      let hours = 0, minutes = 0;
-
-      if (timeString && timeString.includes(':')) {
-        [hours, minutes] = timeString.split(':').map(Number);
-      }
-
-      // Months in JS Date are 0-indexed
-      return new Date(year, month - 1, day, hours, minutes);
-    } catch (error) {
-      console.warn('Error parsing date:', error);
-      return new Date(); // Fallback to current date
-    }
-  };
-
   const removeImage = () => {
     setReceiptImage(null);
   };
@@ -128,11 +96,8 @@ const NewFuel = ({ route, closeModal }) => {
       return;
     }
 
-    const refuelDate = getDateFromInput();
-
     const payload = {
-      fleet: truckId,
-      date: refuelDate.toISOString(),
+      fleet: truckId, // We keep using "fleet" in the payload for backward compatibility with the function
       fuel_amount: parseFloat(fuelAmount),
       fuel_price: parseFloat(fuelPrice),
       odometer_reading: parseInt(odometerReading),
@@ -178,29 +143,6 @@ const NewFuel = ({ route, closeModal }) => {
       <ScrollView className="flex-1 p-4 pb-24">
         <View className="bg-white rounded-lg mb-6">
           <Text className="text-gray-800 font-bold text-lg mb-4">Refuel Details</Text>
-
-          {/* Replace DateTimePicker with simple text inputs */}
-          <View className="mb-4">
-            <Text className="text-gray-600 mb-1">Date (YYYY-MM-DD)</Text>
-            <TextInput
-              className="border border-gray-300 rounded-lg px-3 py-2"
-              value={dateString}
-              onChangeText={setDateString}
-              placeholder="2025-04-02"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          <View className="mb-4">
-            <Text className="text-gray-600 mb-1">Time (HH:MM)</Text>
-            <TextInput
-              className="border border-gray-300 rounded-lg px-3 py-2"
-              value={timeString}
-              onChangeText={setTimeString}
-              placeholder="14:30"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
 
           <View className="mb-4">
             <Text className="text-gray-600 mb-1">Fuel Amount (liters)</Text>

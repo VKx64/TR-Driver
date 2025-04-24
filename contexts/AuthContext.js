@@ -1,73 +1,96 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
-import PocketBase from 'pocketbase';
+import { pb, checkAuth } from '../services/pocketbase';
 
 // Create context
 const AuthContext = createContext(null);
-const pb_url = process.env.EXPO_PUBLIC_POCKETBASE_URL;
-
-// PocketBase client initialization with error handling
-const initPocketBase = () => {
-  try {
-    const pb = new PocketBase(pb_url);
-    return pb;
-  } catch (error) {
-    console.error('Failed to initialize PocketBase:', error);
-    return null;
-  }
-};
 
 export function AuthProvider({ children }) {
-  const [pb, setPb] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
 
-  // Initialize PocketBase on client-side only
+  // Initialize auth state
   useEffect(() => {
-    // Make sure we're in the browser
-    if (typeof window !== 'undefined') {
-      const pocketbase = initPocketBase();
-      setPb(pocketbase);
-      setInitialized(true);
+    if (!pb) {
+      console.log('❌ PocketBase instance is not available');
+      setLoading(false);
+      return;
     }
-  }, []);
 
-  // Setup auth state after PocketBase is initialized
-  useEffect(() => {
-    if (!initialized || !pb) return;
+    console.log('🔄 Initializing AuthContext');
 
-    // Get initial user state
-    setUser(pb.authStore.model);
+    // Check initial auth state
+    console.log('🔍 Checking existing authentication...');
+    if (pb.authStore.isValid) {
+      console.log('✅ Found valid authentication');
+      setUser(pb.authStore.model);
+    } else {
+      console.log('ℹ️ No valid authentication found');
+      setUser(null);
+    }
+
     setLoading(false);
 
     // Listen for auth changes
+    console.log('👂 Setting up auth change listener');
     const unsubscribe = pb.authStore.onChange((token, model) => {
+      console.log('🔄 Auth state changed:', model ? 'Logged in' : 'Logged out');
       setUser(model);
     });
 
     return () => {
+      console.log('🛑 Removing auth change listener');
       unsubscribe?.();
     };
-  }, [pb, initialized]);
+  }, []);
 
   const login = async (email, password) => {
+    if (!pb) throw new Error('PocketBase not initialized');
+    console.log('🔑 Attempting login for:', email);
+
     try {
-      await pb.collection('drivers').authWithPassword(email, password);
-      setUser(pb.authStore.model);
+      // Authenticate with users collection
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      console.log('✅ Authentication successful');
+
+      // If login is successful, check if user has driver role
+      if (authData.record.role === 'driver') {
+        console.log('👤 User has valid driver role');
+        setUser(authData.record);
+
+        // Debug: Check auth state after login
+        checkAuth();
+
+        return authData;
+      } else {
+        // User exists but doesn't have driver role
+        console.warn('⚠️ User does not have driver role, logging out');
+        pb.authStore.clear();
+        throw new Error('User does not have driver role');
+      }
     } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
+      console.error('❌ Login failed:', error);
+
+      // If it's already the role error we raised, just rethrow it
+      if (error.message === 'User does not have driver role') {
+        throw error;
+      }
+
+      // Otherwise it's likely an auth error from PocketBase
+      throw new Error('Invalid email or password');
     }
   };
 
   const logout = async () => {
-    pb.authStore.clear();
-    setUser(null);
+    console.log('🚪 Logging out user');
+    if (pb) {
+      pb.authStore.clear();
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

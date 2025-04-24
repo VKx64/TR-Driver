@@ -1,44 +1,271 @@
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import TruckDropdown from '../../components/TruckDropdown';
 import { useFleets } from '../../services/fleets/fetchAllFleets';
+import { pb } from '../../services/pocketbase';  // Changed from default to named import
+import { useSelectedTruck } from '../../contexts/TruckContext';
 
 export default function Alerts() {
-  // Use the fleet hook to get all fleets
-  const { fleets, loading: loadingFleets } = useFleets();
-  const [selectedTruck, setSelectedTruck] = useState(null);
+  // Use the shared truck context instead of local selection
+  const { selectedTruck } = useSelectedTruck();
   const [loading, setLoading] = useState(false);
   const [alerts, setAlerts] = useState([]);
+  const maintenanceSubscription = useRef(null);
+  const requestSubscription = useRef(null);
 
-  // Handle truck selection
-  const handleTruckSelect = (truck) => {
-    setSelectedTruck(truck);
-    console.log('Selected truck ID:', truck.id);
-    console.log('Selected truck plate:', truck.plate);
-    // Here you would fetch alerts for this specific truck
-    fetchAlerts(truck.id);
+  // Subscribe to real-time maintenance status changes for the selected truck
+  const subscribeToMaintenanceChanges = (truckId) => {
+    // Unsubscribe from any existing subscriptions
+    unsubscribeFromChanges();
+
+    console.log('Subscribing to maintenance changes for truck:', truckId);
+
+    // Subscribe to maintenance_status changes
+    try {
+      maintenanceSubscription.current = pb.collection('maintenance_status').subscribe('*', function(e) {
+        console.log('Maintenance status change detected:', e.action);
+
+        // Only process changes relevant to the selected truck
+        if (e.record && e.record.truck_id === truckId) {
+          console.log('Change for our truck detected:', e.record);
+
+          // Process the maintenance status change and add it to alerts
+          processMaintenanceStatusChange(e.action, e.record);
+        }
+      });
+
+      // Also subscribe to maintenance_request changes to catch approvals/declines/completions
+      requestSubscription.current = pb.collection('maintenance_request').subscribe('*', function(e) {
+        console.log('Maintenance request change detected:', e.action);
+
+        if (e.record && e.record.truck && e.record.truck.id === truckId) {
+          console.log('Request change for our truck detected:', e.record);
+
+          // Process the request status change
+          processMaintenanceRequestChange(e.action, e.record);
+        }
+      });
+
+      console.log('Subscribed to changes successfully');
+    } catch (error) {
+      console.error('Error subscribing to changes:', error);
+    }
+  };
+
+  // Process maintenance status changes and create appropriate alerts
+  const processMaintenanceStatusChange = (action, record) => {
+    // Get maintenance type information
+    let maintenanceTypeName = 'Maintenance';
+    if (record.maintenance_type_id) {
+      if (record.expand && record.expand.maintenance_type_id) {
+        maintenanceTypeName = record.expand.maintenance_type_id.name;
+      } else {
+        maintenanceTypeName = `Maintenance #${record.maintenance_type_id}`;
+      }
+    }
+
+    let message = '';
+    let title = '';
+    let severity = 'medium';
+
+    if (action === 'update') {
+      // Check if is_due status changed
+      if (record.is_due) {
+        title = `${maintenanceTypeName} Due`;
+        message = `${maintenanceTypeName} is now due for your truck.`;
+        severity = 'high';
+      } else {
+        title = `${maintenanceTypeName} Updated`;
+        message = `${maintenanceTypeName} status has been updated.`;
+        severity = 'medium';
+      }
+    } else if (action === 'create') {
+      title = `New ${maintenanceTypeName}`;
+      message = `A new ${maintenanceTypeName.toLowerCase()} schedule has been created.`;
+      severity = 'low';
+    }
+
+    if (title) {
+      const newAlert = {
+        id: Date.now(), // Generate a unique ID based on timestamp
+        title,
+        message,
+        severity,
+        date: new Date(),
+      };
+
+      // Add the new alert to the existing alerts
+      setAlerts(prevAlerts => [newAlert, ...prevAlerts]);
+    }
+  };
+
+  // Process maintenance request changes and create appropriate alerts
+  const processMaintenanceRequestChange = (action, record) => {
+    if (!record.status) return;
+
+    let message = '';
+    let title = '';
+    let severity = 'medium';
+
+    // Get maintenance type information
+    let maintenanceTypeName = 'Maintenance Request';
+    if (record.maintenance_type) {
+      if (record.expand && record.expand.maintenance_type) {
+        maintenanceTypeName = record.expand.maintenance_type.name;
+      } else {
+        maintenanceTypeName = `Maintenance Request #${record.maintenance_type}`;
+      }
+    }
+
+    switch (record.status) {
+      case 'approved':
+        title = 'Request Approved';
+        message = `${maintenanceTypeName} request has been approved.`;
+        severity = 'medium';
+        break;
+      case 'declined':
+        title = 'Request Declined';
+        message = `${maintenanceTypeName} request has been declined.`;
+        severity = 'high';
+        break;
+      case 'completed':
+        title = 'Maintenance Completed';
+        message = `${maintenanceTypeName} has been marked as completed.`;
+        severity = 'low';
+        break;
+      // 'pending' status doesn't need an alert
+    }
+
+    if (title) {
+      const newAlert = {
+        id: Date.now(), // Generate a unique ID based on timestamp
+        title,
+        message,
+        severity,
+        date: new Date(),
+      };
+
+      // Add the new alert to the existing alerts
+      setAlerts(prevAlerts => [newAlert, ...prevAlerts]);
+    }
+  };
+
+  // Unsubscribe from all active subscriptions
+  const unsubscribeFromChanges = () => {
+    try {
+      if (maintenanceSubscription.current) {
+        pb.collection('maintenance_status').unsubscribe();
+        maintenanceSubscription.current = null;
+        console.log('Unsubscribed from maintenance status changes');
+      }
+
+      if (requestSubscription.current) {
+        pb.collection('maintenance_request').unsubscribe();
+        requestSubscription.current = null;
+        console.log('Unsubscribed from maintenance request changes');
+      }
+    } catch (error) {
+      console.error('Error unsubscribing from changes:', error);
+    }
   };
 
   // Fetch alerts for selected truck
   const fetchAlerts = async (truckId) => {
+    if (!truckId) return;
+
     setLoading(true);
     try {
-      // TODO: Replace with actual alert fetching service
-      // Simulating API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch maintenance status alerts
+      const maintenanceStatuses = await pb.collection('maintenance_status').getList(1, 50, {
+        filter: `truck_id.id = "${truckId}" && is_due = true`,
+        expand: 'maintenance_type_id,truck_id',
+      });
 
-      // For now using dummy data
-      setAlerts([
-        { id: 1, title: 'Maintenance Due', message: 'Oil change due in 500km', severity: 'medium', date: new Date() },
-        { id: 2, title: 'Low Fuel Warning', message: 'Fuel level below 15%', severity: 'high', date: new Date() },
-      ]);
+      // Fetch maintenance requests
+      const maintenanceRequests = await pb.collection('maintenance_request').getList(1, 50, {
+        filter: `truck.id = "${truckId}" && (status = "approved" || status = "declined" || status = "completed")`,
+        expand: 'maintenance_type,truck',
+        sort: '-updated',
+      });
+
+      const generatedAlerts = [];
+
+      // Process maintenance statuses
+      maintenanceStatuses.items.forEach(status => {
+        const maintenanceType = status.expand?.maintenance_type_id?.name || 'Maintenance';
+
+        generatedAlerts.push({
+          id: `status-${status.id}`,
+          title: `${maintenanceType} Due`,
+          message: `${maintenanceType} is due for your truck.`,
+          severity: 'high',
+          date: new Date(status.updated),
+        });
+      });
+
+      // Process maintenance requests
+      maintenanceRequests.items.forEach(request => {
+        const maintenanceType = request.expand?.maintenance_type?.name || 'Maintenance';
+        let title = '';
+        let message = '';
+        let severity = 'medium';
+
+        switch (request.status) {
+          case 'approved':
+            title = 'Request Approved';
+            message = `${maintenanceType} request has been approved.`;
+            severity = 'medium';
+            break;
+          case 'declined':
+            title = 'Request Declined';
+            message = `${maintenanceType} request has been declined.`;
+            severity = 'high';
+            break;
+          case 'completed':
+            title = 'Maintenance Completed';
+            message = `${maintenanceType} has been marked as completed.`;
+            severity = 'low';
+            break;
+        }
+
+        generatedAlerts.push({
+          id: `request-${request.id}`,
+          title,
+          message,
+          severity,
+          date: new Date(request.updated),
+        });
+      });
+
+      // Sort all alerts by date, newest first
+      generatedAlerts.sort((a, b) => b.date - a.date);
+
+      setAlerts(generatedAlerts);
     } catch (error) {
       console.error('Error fetching alerts:', error);
+      setAlerts([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Clean up subscriptions when component unmounts
+  useEffect(() => {
+    return () => {
+      unsubscribeFromChanges();
+    };
+  }, []);
+
+  // Update alerts when selected truck changes
+  useEffect(() => {
+    if (selectedTruck) {
+      fetchAlerts(selectedTruck.id);
+      subscribeToMaintenanceChanges(selectedTruck.id);
+    } else {
+      setAlerts([]);
+      unsubscribeFromChanges();
+    }
+  }, [selectedTruck]);
 
   // Pull to refresh functionality
   const handleRefresh = () => {
@@ -49,20 +276,22 @@ export default function Alerts() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="bg-indigo-600 p-4 shadow-md">
-        <Text className="text-white text-xl font-bold">Alerts</Text>
-        <Text className="text-indigo-100 text-sm">Monitor truck alerts and notifications</Text>
-      </View>
-
       {/* Main Content Area */}
-      <View className="flex-1 relative">
+      <View className="flex-1">
         {selectedTruck ? (
           <ScrollView
-            className="flex-1 p-4 pb-24 bg-gray-100"
+            className="flex-1 p-4 bg-gray-100"
             refreshing={loading}
             onRefresh={handleRefresh}
             showsVerticalScrollIndicator={false}
           >
+            {/* Selected Truck Info */}
+            <View className="bg-indigo-100 p-3 rounded-lg mb-4">
+              <Text className="text-indigo-800 font-semibold">
+                Showing alerts for: {selectedTruck.plate}
+              </Text>
+            </View>
+
             {/* Loading state for alerts */}
             {loading ? (
               <View className="flex-1 justify-center items-center py-10">
@@ -97,45 +326,25 @@ export default function Alerts() {
                 </Text>
               </View>
             )}
+
+            {/* Refresh Button */}
+            <TouchableOpacity
+              onPress={handleRefresh}
+              className="bg-indigo-600 rounded-lg py-3 flex-row justify-center items-center my-4"
+            >
+              <Ionicons name="refresh-outline" size={20} color="white" />
+              <Text className="text-white font-bold text-center ml-2">Refresh Alerts</Text>
+            </TouchableOpacity>
           </ScrollView>
         ) : (
           <View className="flex-1 justify-center items-center p-4 bg-gray-100">
             <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
             <Text className="text-xl font-semibold text-gray-500 mt-4 mb-2">No truck selected</Text>
             <Text className="text-gray-400 text-center">
-              Select a truck from the dropdown below to view its alerts
+              Please select a truck on the Home tab to view alerts
             </Text>
           </View>
         )}
-
-        {/* Fixed Bottom Area with Truck Dropdown */}
-        <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-          {/* Truck Selector Dropdown */}
-          {loadingFleets ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">Loading trucks...</Text>
-          ) : fleets.fleetPairs.length === 0 ? (
-            <Text className="text-gray-600 p-2 text-center mb-3">No trucks available</Text>
-          ) : (
-            <View className="mb-3">
-              <TruckDropdown
-                trucks={fleets.fleetPairs}
-                selectedTruck={selectedTruck}
-                onSelect={handleTruckSelect}
-              />
-            </View>
-          )}
-
-          {/* Refresh Button - Only shown when a truck is selected */}
-          {selectedTruck && (
-            <TouchableOpacity
-              onPress={handleRefresh}
-              className="bg-indigo-600 rounded-lg py-3 flex-row justify-center items-center"
-            >
-              <Ionicons name="refresh-outline" size={20} color="white" />
-              <Text className="text-white font-bold text-center ml-2">Refresh Alerts</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
     </SafeAreaView>
   );

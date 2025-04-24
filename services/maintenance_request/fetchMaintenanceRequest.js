@@ -3,14 +3,14 @@ import { pb } from "../pocketbase";
 // Format the data for the response
 function formatData(records) {
   return records.map(record => {
-    // Extract just the task name from expanded maintenance data
-    const taskName = record.expand?.maintenance?.task_name || "Unknown Maintenance";
+    // Extract maintenance type name from expanded maintenance_type relation
+    const taskName = record.expand?.maintenance_type?.name || "Unknown Maintenance";
 
-    // Return the formatted record with just the task name
+    // Return the formatted record with task name from maintenance_type
     return {
       id: record.id,
-      fleetId: record.fleet,
-      maintenanceId: record.maintenance,
+      truckId: record.truck,
+      maintenanceTypeId: record.maintenance_type,
       status: record.status || "pending",
       created: record.created,
       updated: record.updated,
@@ -19,26 +19,26 @@ function formatData(records) {
   });
 }
 
-// Fetches maintenance request records for a specific fleet
-export async function fetchMaintenanceRequestByFleet(fleetId) {
+// Fetches maintenance request records for a specific truck
+export async function fetchMaintenanceRequestByFleet(truckId) {
   try {
-    // Check if fleetId was provided
-    if (!fleetId) {
-      console.warn("⚠️ No valid fleetId provided when fetching maintenance requests");
+    // Check if truckId was provided
+    if (!truckId) {
+      console.warn("⚠️ No valid truckId provided when fetching maintenance requests");
       return formatData([]);
     }
 
-    // Fetch maintenance request records filtered by fleet ID with expanded maintenance data
+    // Fetch maintenance request records filtered by truck ID with expanded maintenance_type data
     const records = await pb.collection('maintenance_request').getFullList({
-      filter: `fleet = "${fleetId}"`,
+      filter: `truck = "${truckId}"`,
       sort: "-created",
-      expand: "maintenance",
+      expand: "maintenance_type",
       requestKey: null,
       $autoCancel: false
     });
 
     // Log success
-    console.log(`✅ Successfully fetched ${records.length} maintenance requests for fleet ${fleetId}`);
+    console.log(`✅ Successfully fetched ${records.length} maintenance requests for truck ${truckId}`);
 
     // Format the data
     const formattedData = formatData(records);
