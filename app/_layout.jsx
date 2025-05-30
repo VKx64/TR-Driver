@@ -16,6 +16,7 @@ export default function RootLayoutContent() {
           <Stack.Screen name="tabs/alerts" />
           <Stack.Screen name="pages/refuel" />
           <Stack.Screen name="pages/maintenance" />
+          <Stack.Screen name="pages/newPassowrd"/>
           <Stack.Screen name="forms/newfuel" />
         </Stack>
       </TruckProvider>

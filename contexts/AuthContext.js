@@ -49,34 +49,19 @@ export function AuthProvider({ children }) {
     console.log('🔑 Attempting login for:', email);
 
     try {
-      // Authenticate with users collection
       const authData = await pb.collection('users').authWithPassword(email, password);
       console.log('✅ Authentication successful');
 
-      // If login is successful, check if user has driver role
       if (authData.record.role === 'driver') {
-        console.log('👤 User has valid driver role');
         setUser(authData.record);
-
-        // Debug: Check auth state after login
         checkAuth();
-
         return authData;
       } else {
-        // User exists but doesn't have driver role
-        console.warn('⚠️ User does not have driver role, logging out');
         pb.authStore.clear();
         throw new Error('User does not have driver role');
       }
     } catch (error) {
-      console.error('❌ Login failed:', error);
-
-      // If it's already the role error we raised, just rethrow it
-      if (error.message === 'User does not have driver role') {
-        throw error;
-      }
-
-      // Otherwise it's likely an auth error from PocketBase
+      if (error.message === 'User does not have driver role') throw error;
       throw new Error('Invalid email or password');
     }
   };
@@ -89,8 +74,34 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // --- SIMPLIFIED PASSWORD UPDATE USING SDK ---
+  const updatePassword = async (currentPassword, newPassword) => {
+    if (!pb || !user) throw new Error('Not authenticated');
+    // This will only work if the user knows their current password!
+    return pb.collection('users').update(user.id, {
+      password: newPassword,
+      passwordConfirm: newPassword,
+      
+    });
+  };
+
+  // Compute isVerified from the user record
+  const isVerified =
+    user &&
+    (user.verified === true ||
+      user.verified === 1 ||
+      user.verified === "true");
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      updatePassword, // <-- now just the SDK method
+      loading,
+      isAuthenticated: !!user,
+      isVerified
+    }}>
       {children}
     </AuthContext.Provider>
   );

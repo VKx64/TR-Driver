@@ -1,4 +1,5 @@
-import { View, Text, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, Modal, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import WelcomeCard from '../../components/WelcomeCard';
@@ -6,10 +7,65 @@ import NavigationCard from '../../components/NavigationCard';
 import TruckDropdown from '../../components/TruckDropdown';
 import { useFleets } from '../../services/fleets/fetchAllFleets';
 import { useSelectedTruck } from '../../contexts/TruckContext';
+import { useAuth } from '../../contexts/AuthContext';
+import AccountVerificationModal from '../../components/AccountVerificationModal';
 
 export default function Home() {
   const { fleets, loading: loadingFleets } = useFleets();
   const { selectedTruck, setSelectedTruck } = useSelectedTruck();
+  const { user, isVerified } = useAuth();
+  const [hasShownAlert, setHasShownAlert] = useState(false);
+  const [hasShownNewUserAlert, setHasShownNewUserAlert] = useState(false);
+
+  // States for custom modals instead of Alert
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  // Removed: showTestModal state
+
+  // Check if user is new based on created date
+  const isNewUser = () => {
+    if (!user || !user.created) return false;
+
+    // Consider user new if account was created in the last 24 hours
+    const createdDate = new Date(user.created);
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+    return createdDate > oneDayAgo;
+  };
+
+  // Check verification status AND new user status when component mounts
+  useEffect(() => {
+    console.log("===== USER STATE =====");
+    console.log("User exists:", !!user);
+    console.log("isVerified type:", typeof isVerified);
+    console.log("isVerified value:", isVerified);
+    console.log("hasShownAlert:", hasShownAlert);
+    console.log("Condition result:", user && isVerified === false && !hasShownAlert);
+
+    if (user) {
+      console.log("User created date:", user.created);
+      console.log("Is new user:", isNewUser());
+      console.log("Is verified:", isVerified);
+
+      // If user is new and we haven't shown the new user alert yet
+      if (isNewUser() && !hasShownNewUserAlert) {
+        // Show welcome modal instead of Alert
+        setShowWelcomeModal(true);
+        setHasShownNewUserAlert(true);
+      }
+      // Otherwise check verification status
+      else if ((isVerified === false || isVerified === 0 || isVerified === "false" || !isVerified) && !hasShownAlert) {
+        console.log("🚨 USER NEEDS VERIFICATION");
+
+        // Show verification modal instead of Alert
+        setShowVerificationModal(true);
+        setHasShownAlert(true);
+      }
+    }
+  }, [user, isVerified, hasShownAlert, hasShownNewUserAlert]);
+
+  // Removed: debugUserStatus function
 
   const navigateToMaintenance = () => {
     // Pass the selected fleet ID to the maintenance page if one is selected
@@ -41,9 +97,15 @@ export default function Home() {
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-4">
+
+      <AccountVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+      />
+
       <View className="flex flex-col gap-5">
-        {/* Welcome Card Component */}
         <WelcomeCard />
+
 
         {/* Truck Selection Dropdown */}
         <View className='flex flex-col gap-2 mb-2'>
