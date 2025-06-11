@@ -4,16 +4,28 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
+/**
+ * Password setting/changing screen component
+ * Handles both new user password setup and existing user password changes
+ */
 export default function ChangePasswordScreen() {
+  // ===== STATE MANAGEMENT =====
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Hooks
   const router = useRouter();
-  const { updatePassword, user } = useAuth(); // Get the user
+  const { updatePassword, user } = useAuth();
 
-  // Check if user is new based on created date
+  // ===== USER TYPE DETECTION =====
+  
+  /**
+   * Determines if the user is new based on account creation date
+   * @returns {boolean} True if user is new (created within last 24 hours)
+   */
   const isNewUser = () => {
     if (!user || !user.created) return false;
 
@@ -25,10 +37,12 @@ export default function ChangePasswordScreen() {
     return createdDate > oneDayAgo;
   };
 
-  // Store the result of the check
+  // Cache the user type check result
   const userIsNew = isNewUser();
 
-  // Check password requirements
+  // ===== PASSWORD VALIDATION =====
+  
+  // Password requirements validation
   const hasMinLength = newPassword.length >= 8;
   const hasUppercase = /[A-Z]/.test(newPassword);
   const hasLowercase = /[a-z]/.test(newPassword);
@@ -36,21 +50,25 @@ export default function ChangePasswordScreen() {
   const hasSpecial = /[!@#$%^&*]/.test(newPassword);
   const passwordsMatch = newPassword === confirmPassword && newPassword !== "";
 
+  /**
+   * Handles password validation and update
+   */
   const handlePasswordChange = async () => {
     setErrorMessage("");
 
-    // Validate all password requirements
+    // 1. Validate password requirements
     if (!hasMinLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSpecial) {
       setErrorMessage("Please ensure your password meets all the requirements");
       return;
     }
 
+    // 2. Confirm passwords match
     if (!passwordsMatch) {
       setErrorMessage("Passwords don't match");
       return;
     }
 
-    // Only check current password if user is not new
+    // 3. Check current password (only for existing users)
     if (!userIsNew && !currentPassword) {
       setErrorMessage("Please enter your current password");
       return;
@@ -58,17 +76,21 @@ export default function ChangePasswordScreen() {
 
     try {
       setIsLoading(true);
-
-  
+      
+      // Use dummy password for new users (they don't know their auto-generated one)
       const passwordToUse = userIsNew ? "initialPassword" : currentPassword;
+      
+      // Update the password, passing the userIsNew flag
+      await updatePassword(passwordToUse, newPassword, userIsNew);
 
-      await updatePassword(passwordToUse, newPassword);
-
-      // Show success alert
+      // Show success message and navigate
       Alert.alert(
         "Success",
         "Password changed successfully. Your account is now verified.",
-        [{ text: "OK", onPress: () => router.back() }]
+        [{ 
+          text: "OK", 
+          onPress: () => router.push("/tabs/driver")
+        }]
       );
     } catch (error) {
       setErrorMessage(error.message || "Failed to update password. Please try again.");
@@ -77,9 +99,11 @@ export default function ChangePasswordScreen() {
     }
   };
 
+  // ===== RENDER COMPONENT =====
   return (
     <ScrollView className="flex-1 bg-gray-100">
       <View className="p-4">
+        {/* Header and back button */}
         <TouchableOpacity
           className="flex-row items-center mb-6"
           onPress={() => router.back()}
@@ -88,10 +112,12 @@ export default function ChangePasswordScreen() {
           <Text className="ml-2 text-indigo-600 font-medium">Back</Text>
         </TouchableOpacity>
 
+        {/* Title - different for new vs existing users */}
         <Text className="text-3xl font-bold text-gray-800 mb-6">
           {userIsNew ? "Set Password" : "Change Password"}
         </Text>
 
+        {/* Password input section */}
         <View className="bg-white rounded-lg p-4 mb-6 shadow">
           <Text className="text-gray-600 mb-4">
             {userIsNew
@@ -99,7 +125,7 @@ export default function ChangePasswordScreen() {
               : "To verify your account, please create a strong password that meets all requirements below."}
           </Text>
 
-          {/* Only show current password field for existing users */}
+          {/* Current password field - only for existing users */}
           {!userIsNew && (
             <View className="mb-4">
               <Text className="text-gray-700 font-medium mb-1">Current Password</Text>
@@ -115,6 +141,7 @@ export default function ChangePasswordScreen() {
             </View>
           )}
 
+          {/* New password field */}
           <View className="mb-4">
             <Text className="text-gray-700 font-medium mb-1">
               {userIsNew ? "Password" : "New Password"}
@@ -130,6 +157,7 @@ export default function ChangePasswordScreen() {
             </View>
           </View>
 
+          {/* Confirm password field */}
           <View className="mb-4">
             <Text className="text-gray-700 font-medium mb-1">Confirm Password</Text>
             <View className="border border-gray-300 rounded-lg px-4 py-2">
@@ -144,69 +172,25 @@ export default function ChangePasswordScreen() {
           </View>
         </View>
 
-        {/* Password requirements */}
+        {/* Password requirements checklist */}
         <View className="bg-white rounded-lg p-4 mb-6 shadow">
           <Text className="font-medium text-gray-700 mb-3">Password Requirements:</Text>
 
-          <View className="flex-row items-center mb-2">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${hasMinLength ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {hasMinLength && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={hasMinLength ? 'text-green-700' : 'text-gray-600'}>
-              At least 8 characters
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${hasUppercase ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {hasUppercase && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={hasUppercase ? 'text-green-700' : 'text-gray-600'}>
-              At least 1 uppercase letter
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${hasLowercase ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {hasLowercase && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={hasLowercase ? 'text-green-700' : 'text-gray-600'}>
-              At least 1 lowercase letter
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${hasNumber ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {hasNumber && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={hasNumber ? 'text-green-700' : 'text-gray-600'}>
-              At least 1 number
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${hasSpecial ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {hasSpecial && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={hasSpecial ? 'text-green-700' : 'text-gray-600'}>
-              At least 1 special character (!@#$%^&*)
-            </Text>
-          </View>
-
-          <View className="flex-row items-center">
-            <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${passwordsMatch ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {passwordsMatch && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text className={passwordsMatch ? 'text-green-700' : 'text-gray-600'}>
-              Passwords match
-            </Text>
-          </View>
+          {/* Render each requirement with appropriate styling */}
+          {renderRequirement(hasMinLength, "At least 8 characters")}
+          {renderRequirement(hasUppercase, "At least 1 uppercase letter")}
+          {renderRequirement(hasLowercase, "At least 1 lowercase letter")}
+          {renderRequirement(hasNumber, "At least 1 number")}
+          {renderRequirement(hasSpecial, "At least 1 special character (!@#$%^&*)")}
+          {renderRequirement(passwordsMatch, "Passwords match")}
         </View>
 
+        {/* Error message display */}
         {errorMessage ? (
           <Text className="mb-4 text-center text-red-500">{errorMessage}</Text>
         ) : null}
 
+        {/* Submit button */}
         <TouchableOpacity
           className={`rounded-lg py-4 ${isLoading ? 'bg-indigo-400' : 'bg-indigo-600'}`}
           onPress={handlePasswordChange}
@@ -218,5 +202,24 @@ export default function ChangePasswordScreen() {
         </TouchableOpacity>
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * Helper function to render a password requirement with checkmark
+ * @param {boolean} isMet - Whether the requirement is met
+ * @param {string} text - The requirement text to display
+ * @returns {JSX.Element} The rendered requirement
+ */
+function renderRequirement(isMet, text) {
+  return (
+    <View className="flex-row items-center mb-2">
+      <View className={`w-5 h-5 rounded-full justify-center items-center mr-3 ${isMet ? 'bg-green-500' : 'bg-gray-300'}`}>
+        {isMet && <Ionicons name="checkmark" size={16} color="white" />}
+      </View>
+      <Text className={isMet ? 'text-green-700' : 'text-gray-600'}>
+        {text}
+      </Text>
+    </View>
   );
 }
