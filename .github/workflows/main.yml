@@ -6,52 +6,68 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for versioning based on commits
+          # Required to fetch all history for commit-and-tag-version
+          fetch-depth: 0
+          # We need a token with write access to push the new version tag
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
       - name: Install dependencies
         run: npm install
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+      # This is the official Expo action that handles authentication
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Bump version and create tag
         run: |
           npm install -g commit-and-tag-version
-          commit-and-tag-version --release-as patch # Or minor/major based on your needs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          commit-and-tag-version --release-as patch
 
-      - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive --output=app.apk
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Push updated package.json and new tag
+        run: git push --follow-tags
 
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-          tags: true
+      - name: Build APK with EAS
+        id: build
+        run: |
+          # Start the build, wait for it, and output the result to a JSON file
+          eas build --platform android --profile preview --non-interactive --wait --json > build-output.json
 
-      - name: Create Release
+          # Extract the download URL from the JSON output and save it for the next step
+          BUILD_URL=$(jq -r '.[] | select(.platform == "ANDROID") | .artifacts.buildUrl // .artifacts.url' build-output.json)
+          echo "APP_URL=${BUILD_URL}" >> $GITHUB_OUTPUT
+
+      - name: Download APK from build URL
+        run: |
+          # Download the file from the URL we got in the previous step
+          curl -L "${{ steps.build.outputs.APP_URL }}" -o app.apk
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          # This automatically uses the tag created by 'commit-and-tag-version'
+          # It also attaches the 'app.apk' file we downloaded
           files: app.apk
+          # This is a great feature that creates release notes from your commit messages
+          generate_release_notes: true
         env:
+          # The action needs this token to create the release
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
