@@ -12,13 +12,3 @@ body:
       placeholder: "Example: A new dashboard for admins to manage users"
     validations:
       required: true
-
-  # Date picker element for selecting the preferred completion date
-  - type: input
-    id: preferred_completion
-    attributes:
-      label: When is the preferred completion date?
-      description: Select the desired date for when you would like this feature to be completed.
-      placeholder: "YYYY-MM-DD"
-    validations:
-      required: true
