@@ -20,7 +20,7 @@ export default function LoginScreen() {
     try {
       setErrorMessage("");
       await login(email, password);
-      router.replace("/tabs/driver");
+      router.replace("/checklist");
     } catch (error) {
       console.error("Login error:", error.message);
 

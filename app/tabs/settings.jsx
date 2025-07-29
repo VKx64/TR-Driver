@@ -1,6 +1,7 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { clearChecklistCompletion, getChecklistCompletionDetails } from '../../services/checklistStorage';
 
 export default function Settings() {
   const { logout } = useAuth();

@@ -10,6 +10,7 @@ export default function RootLayoutContent() {
       <TruckProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="auth/login" />
+          <Stack.Screen name="checklist" />
           <Stack.Screen name="tabs/driver" />
           <Stack.Screen name="tabs" />
           <Stack.Screen name="tabs/settings" />
