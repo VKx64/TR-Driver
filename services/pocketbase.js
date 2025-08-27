@@ -3,9 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let pb = null;
 
-// Initialize PocketBase
+// Initialize PocketBase with fallback URL
 try {
-  pb = new PocketBase(process.env.EXPO_PUBLIC_POCKETBASE_URL);
+  const pocketbaseUrl = process.env.EXPO_PUBLIC_POCKETBASE_URL || 'https://pb-tr.rimuru.win/';
+  console.log('🔗 Initializing PocketBase with URL:', pocketbaseUrl);
+  pb = new PocketBase(pocketbaseUrl);
 
   // Set up auth state persistence with AsyncStorage
   pb.authStore.onChange(async (token, model) => {

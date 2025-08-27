@@ -5,12 +5,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  StatusBar
+  StatusBar,
+  Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import TruckDropdown from '../components/TruckDropdown';
+import { useFleets } from '../services/fleets/fetchAllFleets';
+import NewMaintenanceRequest from './forms/newmaintenancerequest';
 
 const CHECKLIST_ITEMS = [
   {
@@ -96,9 +100,12 @@ const CATEGORY_COLORS = {
 
 export default function ChecklistScreen() {
   const [checklistItems, setChecklistItems] = useState(CHECKLIST_ITEMS.map(item => ({ ...item, checked: false })));
+  const [selectedTruck, setSelectedTruck] = useState(null);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
 
   const router = useRouter();
   const { user } = useAuth();
+  const { fleets, loading: loadingFleets } = useFleets();
 
   const toggleItem = useCallback((itemId) => {
     console.log('Toggling item:', itemId); // Debug log
@@ -157,6 +164,33 @@ export default function ChecklistScreen() {
     );
   };
 
+  const handleReport = (item) => {
+    if (!selectedTruck) {
+      Alert.alert(
+        "Select a Truck",
+        "Please select a truck before reporting an issue with " + item.title.toLowerCase(),
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Report Issue",
+      `Report an issue with ${item.title.toLowerCase()} for truck ${selectedTruck.plate}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Report",
+          onPress: () => setShowMaintenanceModal(true)
+        }
+      ]
+    );
+  };
+
+  const closeMaintenanceModal = () => {
+    setShowMaintenanceModal(false);
+  };
+
   const getProgressPercentage = useMemo(() => {
     return Math.round((getCheckedCount / checklistItems.length) * 100);
   }, [getCheckedCount, checklistItems.length]);
@@ -181,6 +215,24 @@ export default function ChecklistScreen() {
           Before you drive off, check the following:
         </Text>
 
+        {/* Truck Selection Dropdown */}
+        <View className="mb-4">
+          <Text className="text-gray-700 text-sm font-medium mb-2">
+            Select Truck for Reporting Issues:
+          </Text>
+          {loadingFleets ? (
+            <View className="bg-gray-100 rounded-lg p-3 flex-row items-center justify-center">
+              <Text className="text-gray-500">Loading trucks...</Text>
+            </View>
+          ) : (
+            <TruckDropdown
+              trucks={fleets.fleetPairs || []}
+              selectedTruck={selectedTruck}
+              onSelect={setSelectedTruck}
+            />
+          )}
+        </View>
+
         {/* Progress Bar */}
         <View className="bg-gray-200 rounded-full h-2 mb-2">
           <View
@@ -200,10 +252,8 @@ export default function ChecklistScreen() {
           const categoryColor = CATEGORY_COLORS[item.category];
 
           return (
-            <TouchableOpacity
+            <View
               key={item.id}
-              onPress={() => toggleItem(item.id)}
-              activeOpacity={0.7}
               className={`mb-3 p-4 rounded-xl border-2 ${
                 isChecked
                   ? 'bg-green-50 border-green-200'
@@ -246,14 +296,30 @@ export default function ChecklistScreen() {
                     <Text className="text-lg font-bold text-gray-800">
                       {item.title}
                     </Text>
-                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                      isChecked
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-gray-300'
-                    }`}>
-                      {isChecked && (
-                        <Ionicons name="checkmark" size={14} color="white" />
-                      )}
+                    <View className="flex-row items-center">
+                      {/* Report Button */}
+                      <TouchableOpacity
+                        onPress={() => handleReport(item)}
+                        className="bg-orange-500 rounded-full p-2 mr-2"
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="warning-outline" size={16} color="white" />
+                      </TouchableOpacity>
+
+                      {/* Check Button */}
+                      <TouchableOpacity
+                        onPress={() => toggleItem(item.id)}
+                        activeOpacity={0.7}
+                        className={`w-8 h-8 rounded-full border-2 items-center justify-center ${
+                          isChecked
+                            ? 'bg-green-500 border-green-500'
+                            : 'border-gray-300'
+                        }`}
+                      >
+                        {isChecked && (
+                          <Ionicons name="checkmark" size={16} color="white" />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
 
@@ -262,7 +328,7 @@ export default function ChecklistScreen() {
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
           );
         })}
       </ScrollView>
@@ -312,6 +378,18 @@ export default function ChecklistScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Maintenance Request Modal */}
+      <Modal
+        visible={showMaintenanceModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <NewMaintenanceRequest
+          truckId={selectedTruck?.id}
+          closeModal={closeMaintenanceModal}
+        />
+      </Modal>
     </View>
   );
 }

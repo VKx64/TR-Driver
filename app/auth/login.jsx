@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import CustomTextInput from "./components/CustomTextInput";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { testNetworkConnectivity, testPocketBaseHealth } from "@/services/debugNetwork";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -10,6 +11,20 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
   const { login } = useAuth();
+
+  // Run network diagnostics on component mount
+  useEffect(() => {
+    const runDiagnostics = async () => {
+      try {
+        await testNetworkConnectivity();
+        await testPocketBaseHealth();
+      } catch (error) {
+        console.error('Diagnostics failed:', error);
+      }
+    };
+
+    runDiagnostics();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {

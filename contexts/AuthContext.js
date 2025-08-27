@@ -47,6 +47,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     if (!pb) throw new Error('PocketBase not initialized');
     console.log('🔑 Attempting login for:', email);
+    console.log('🌐 PocketBase URL:', pb.baseURL);
 
     try {
       // Authenticate with users collection
@@ -70,6 +71,7 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       console.error('❌ Login failed:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
 
       // If it's already the role error we raised, just rethrow it
       if (error.message === 'User does not have driver role') {
